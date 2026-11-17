@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "verify": ["python3", "-B", "-m", "unittest", "discover", "-s", "tests", "-v"],
+  "demo": ["python3", "-B", "-m", "examples.run_archive"]
+}
