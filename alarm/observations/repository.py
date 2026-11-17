@@ -11,13 +11,19 @@ class ObservationRevisionNotFound(LookupError):
 
 def source_payload(value):
     return [value.alarm_id, value.source_revision, value.action,
-            None if value.time is None else decimal_text(value.time), value.kind]
+            None if value.time is None else decimal_text(value.time), value.kind,
+            None if value.interval is None else
+            [decimal_text(value.interval[0]), decimal_text(value.interval[1])]]
 
 
 def source_from_payload(value):
-    identity, revision, action, time, kind = value
+    # Accept both the legacy five-item payload and the six-item interval payload.
+    identity, revision, action, time, kind = value[:5]
+    interval = None
+    if len(value) > 5 and value[5] is not None:
+        interval = (Decimal(value[5][0]), Decimal(value[5][1]))
     return SourceVersion(identity, revision, action,
-                         None if time is None else Decimal(time), kind)
+                         None if time is None else Decimal(time), kind, interval)
 
 
 def read_observation_revision(store, sequence_id, revision=None):

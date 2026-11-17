@@ -36,7 +36,20 @@ def freeze_task_inputs(store, model_id, model_revision, sequence_id, observation
         kinds = {k for k, _ in definition.intensities}
         if len(observations.records) > 64:
             raise ValueError('at most 64 active alarms')
-        if any(r.time > T or r.kind not in kinds for r in observations.records):
+        interval_records = tuple(r for r in observations.records if r.is_interval)
+        exact_records = tuple(r for r in observations.records if not r.is_interval)
+        if interval_records:
+            if len(interval_records) > 2:
+                raise ValueError('interval tasks allow at most two interval identities')
+            if len(exact_records) > 8:
+                raise ValueError('interval tasks allow at most eight exact events')
+            if len(windows) > 2:
+                raise ValueError('interval tasks allow at most two occupancy windows')
+            if any(interval[0] < 0 or interval[1] > T
+                   for r in interval_records for interval in (r.interval,)):
+                raise ValueError('interval must be contained in [0,T]')
+        if any((r.time if not r.is_interval else r.interval[1]) > T
+               or r.kind not in kinds for r in observations.records):
             raise ValueError('alarm outside horizon or unknown type')
         with localcontext() as ctx:
             ctx.prec = exact_precision(definition.numbers() + (T,))

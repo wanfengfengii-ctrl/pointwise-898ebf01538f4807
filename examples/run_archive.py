@@ -54,11 +54,37 @@ def demonstrate(directory):
                          ensure_ascii=False, indent=2))
 
 
+def demonstrate_intervals(directory):
+    """Interval conditional report, then correction and reopen of the old task."""
+    from examples.interval_cases import cases
+    case = cases()['switch']
+    path = Path(directory) / 'interval-archive.sqlite'
+    with ArchiveStore.open(path) as store:
+        model = register_model(store, 'switch', 'survey-1', **case['definition'])
+        observations = apply_observations(store, 'switch-alarms', case['changes'])
+        old_task = create_task(store, 'switch', model.revision, 'switch-alarms',
+                               observations.revision, case['T'],
+                               case['queries'], case['windows'])
+        # A later source revision turns one interval identity into an exact
+        # alarm; the frozen interval task must keep its original evidence.
+        apply_observations(store, 'switch-alarms', [
+            {'alarm_id': 'left', 'source_revision': 2, 'action': 'put',
+             'time': Decimal('0.3'), 'kind': 'a'}])
+    with ArchiveStore.open(path) as store:
+        report = read_report(store, analyze_task(store, old_task))
+        if 'interval' not in report['alarms'][0]:
+            raise AssertionError('reopened interval task lost its interval evidence')
+        print(json.dumps({'interval_archive': path.name,
+                          'interval_report': json.loads(encode_report(report))},
+                         ensure_ascii=False, indent=2))
+
+
 def main():
     parser = argparse.ArgumentParser(description='Run the device alarm archive example')
     parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='device-alarm-') as directory:
         demonstrate(directory)
+        demonstrate_intervals(directory)
 
 
 if __name__ == '__main__':

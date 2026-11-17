@@ -12,8 +12,10 @@ class ObservationMerge:
 
 def order_active_records(sources):
     records = (source.active_record() for source in sources)
+    # Display order only: location start (exact time or interval lo), then identity.
+    # This ordering does not claim anything about actual event occurrence order.
     return tuple(sorted((r for r in records if r is not None),
-                        key=lambda r: (r.time, r.alarm_id)))
+                        key=lambda r: (r.location, r.alarm_id)))
 
 
 def merge_observations(current, history, incoming):

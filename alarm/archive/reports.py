@@ -38,6 +38,39 @@ def assemble_report(task_id, snapshot, evidence, posteriors, occupancy):
     return AnalysisReport(task_id, payload)
 
 
+def _alarm_entry(record):
+    entry = {'id': record.alarm_id, 'source_revision': record.source_revision,
+             'kind': record.kind}
+    if record.is_interval:
+        entry['interval'] = [record.interval[0], record.interval[1]]
+    else:
+        entry['time'] = record.time
+    return entry
+
+
+def assemble_interval_report(task_id, snapshot, plan, log_likelihood, posteriors, occupancy):
+    if occupancy.axes != snapshot.axes:
+        raise ValueError('report axes do not match frozen request')
+    source = (snapshot.model.model_id, snapshot.model.revision,
+              snapshot.observations.sequence_id, snapshot.observations.revision)
+    if plan.source != source:
+        raise ValueError('report source mismatch')
+    payload = {
+        'task_id': task_id,
+        'binding': {'model_id': source[0], 'model_revision': source[1],
+                    'sequence_id': source[2], 'observation_revision': source[3]},
+        'T': snapshot.T, 'states': list(snapshot.model.definition.states),
+        'alarms': [_alarm_entry(r) for r in snapshot.observations.records],
+        'queries': [{'index': i, 'time': t} for i, t in enumerate(snapshot.queries)],
+        'occupancy_axes': [{'index': a.index, 'state': a.state, 'start': a.start,
+                            'end': a.end, 'label': a.label} for a in snapshot.axes],
+        'log_likelihood': log_likelihood,
+        'posteriors': [list(row) for row in posteriors],
+        'means': list(occupancy.means), 'covariance': [list(row) for row in occupancy.covariance]
+    }
+    return AnalysisReport(task_id, payload)
+
+
 def _pack(value):
     if isinstance(value, Decimal):
         return {'$decimal': str(value)}
